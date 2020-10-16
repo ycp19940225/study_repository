@@ -10,6 +10,14 @@ namespace app\tools;
  */
 class Func
 {
+    /**
+     * 创建图片缩略图
+     * @param $file要缩略的图片
+     * @param $dw 画布的宽
+     * @param $dh 画布的高
+     * @param $path 保存路径
+     * @return string
+     */
     public static function thumb($file, $dw, $dh, $path)
     {//这四个参数分别是1、要缩略的图片，2、画布的宽（也就是你要缩略的宽）3、画布的高（也就是你要缩略的高），4、保存路径）
         //获取用户名图
@@ -48,8 +56,13 @@ class Func
         return $savePath;
     }
 
+    /**
+     * //这是以一个动态创建图片画布的函数（根据具体的图片类型创相应类型的画布）
+     * @param $file
+     * @return resource
+     */
     public function getImg($file)
-    {//这是以一个动态创建图片画布的函数（根据具体的图片类型创相应类型的画布）
+    {
         $info = getimagesize($file);
         $fn = $info['mime'];//获得图片类型；
         switch ($fn) {
@@ -62,7 +75,6 @@ class Func
             case 'image/png':
                 $img = imagecreatefrompng($file);//如果类型是png就创建png类型的画布
                 break;
-
         }
         return $img;//返回画布类型
     }
@@ -207,5 +219,191 @@ class Func
             $array[$key][$fields] = $value;
         }
         return $array;
+    }
+
+    /**
+     * 文件转base64输出
+     * @param String $file 文件路径
+     * @return String base64 string
+     */
+    public static function fileToBase64($file, $code = false){
+        $base64_file = '';
+        $file = $base64_file . $file;
+        if(file_exists($file)){
+            $mime_type= mime_content_type($file);
+            $base64_data = base64_encode(file_get_contents($file));
+            if($code){
+                $base64_data = 'data:'.$mime_type.';base64,'.$base64_data;
+            }
+        }
+        return $base64_data;
+    }
+
+
+    /**
+     * 判断是否是手机浏览器
+     * @return false|int
+     */
+    public static function is_mobile(){
+
+        // returns true if one of the specified mobile browsers is detected
+        // 如果监测到是指定的浏览器之一则返回true
+
+        $regex_match="/(nokia|iphone|android|motorola|^mot\-|softbank|foma|docomo|kddi|up\.browser|up\.link|";
+
+        $regex_match.="htc|dopod|blazer|netfront|helio|hosin|huawei|novarra|CoolPad|webos|techfaith|palmsource|";
+
+        $regex_match.="blackberry|alcatel|amoi|ktouch|nexian|samsung|^sam\-|s[cg]h|^lge|ericsson|philips|sagem|wellcom|bunjalloo|maui|";
+
+        $regex_match.="symbian|smartphone|midp|wap|phone|windows ce|iemobile|^spice|^bird|^zte\-|longcos|pantech|gionee|^sie\-|portalmmm|";
+
+        $regex_match.="jig\s browser|hiptop|^ucweb|^benq|haier|^lct|opera\s*mobi|opera\*mini|320x320|240x320|176x220";
+
+        $regex_match.=")/i";
+
+        // preg_match()方法功能为匹配字符，既第二个参数所含字符是否包含第一个参数所含字符，包含则返回1既true
+        return preg_match($regex_match, strtolower($_SERVER['HTTP_USER_AGENT']));
+    }
+
+    //对path进行判断，如果是本地文件就二进制读取并base64编码，如果是url,则返回
+    public static function img_base64($path){
+        $img_data="";
+        if (substr($path,0,strlen("http")) === "http"){
+            $img_data = $path;
+        }else{
+            if($fp = fopen($path, "rb", 0)) {
+                $binary = fread($fp, filesize($path)); // 文件读取
+                fclose($fp);
+                $img_data = base64_encode($binary); // 转码
+            }else{
+                printf("%s 图片不存在",$img_path);
+            }
+        }
+        return $img_data;
+    }
+
+    /**
+     * 数字转中文货币大写
+     *
+     * · 个，十，百，千，万，十万，百万，千万，亿，十亿，百亿，千亿，万亿，十万亿，
+     *   百万亿，千万亿，兆；此函数亿乘以亿为兆
+     *
+     * · 以「十」开头，如十五，十万，十亿等。两位数以上，在数字中部出现，则用「一十几」，
+     *   如一百一十，一千零一十，一万零一十等
+     *
+     * · 「二」和「两」的问题。两亿，两万，两千，两百，都可以，但是20只能是二十，
+     *   200用二百也更好。22,2222,2222是「二十二亿两千二百二十二万两千二百二十二」
+     *
+     * · 关于「零」和「〇」的问题，数字中一律用「零」，只有页码、年代等编号中数的空位
+     *   才能用「〇」。数位中间无论多少个0，都读成一个「零」。2014是「两千零一十四」，
+     *   20014是「二十万零一十四」，201400是「二十万零一千四百」
+     *
+     * 参考：https://jingyan.baidu.com/article/636f38bb3cfc88d6b946104b.html
+     *
+     * 人民币写法参考：[正确填写票据和结算凭证的基本规定](http://bbs.chinaacc.com/forum-2-35/topic-1181907.html)
+     *
+     * @param  minx  $number
+     * @param  boolean $isRmb
+     * @return string
+     */
+    public static function number2chinese($number, $isRmb = false)
+    {
+        // 判断正确数字
+        if (!preg_match('/^-?\d+(\.\d+)?$/', $number)) {
+            throw new Exception('number2chinese() wrong number', 1);
+        }
+        list($integer, $decimal) = explode('.', $number . '.0');
+
+        // 检测是否为负数
+        $symbol = '';
+        if (substr($integer, 0, 1) == '-') {
+            $symbol = '负';
+            $integer = substr($integer, 1);
+        }
+        if (preg_match('/^-?\d+$/', $number)) {
+            $decimal = null;
+        }
+        $integer = ltrim($integer, '0');
+
+        // 准备参数
+        $numArr  = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九', '.' => '点'];
+        $descArr = ['', '十', '百', '千', '万', '十', '百', '千', '亿', '十', '百', '千', '万亿', '十', '百', '千', '兆', '十', '百', '千'];
+        if ($isRmb) {
+            $number = substr(sprintf("%.5f", $number), 0, -1);
+            $numArr  = ['', '壹', '贰', '叁', '肆', '伍', '陆', '柒', '捌', '玖', '.' => '点'];
+            $descArr = ['', '拾', '佰', '仟', '万', '拾', '佰', '仟', '亿', '拾', '佰', '仟', '万亿', '拾', '佰', '仟', '兆', '拾', '佰', '仟'];
+            $rmbDescArr = ['角', '分', '厘', '毫'];
+        }
+
+        // 整数部分拼接
+        $integerRes = '';
+        $count = strlen($integer);
+        if ($count > max(array_keys($descArr))) {
+            throw new Exception('number2chinese() number too large.', 1);
+        } else if ($count == 0) {
+            $integerRes = '零';
+        } else {
+            for ($i = 0; $i < $count; $i++) {
+                $n = $integer[$i];      // 位上的数
+                $j = $count - $i - 1;   // 单位数组 $descArr 的第几位
+                // 零零的读法
+                $isLing = $i > 1                    // 去除首位
+                    && $n !== '0'                   // 本位数字不是零
+                    && $integer[$i - 1] === '0';    // 上一位是零
+                $cnZero = $isLing ? '零': '';
+                $cnNum  = $numArr[$n];
+                // 单位读法
+                $isEmptyDanwei = ($n == '0' && $j % 4 != 0)     // 是零且一断位上
+                    || substr($integer, $i - 3, 4) === '0000';  // 四个连续0
+                $descMark = isset($cnDesc) ? $cnDesc : '';
+                $cnDesc = $isEmptyDanwei ? '' : $descArr[$j];
+                // 第一位是一十
+                if ($i == 0 && $cnNum == '一' && $cnDesc == '十') $cnNum = '';
+                // 二两的读法
+                $isChangeEr = $n > 1 && $cnNum == '二'       // 去除首位
+                    && !in_array($cnDesc, ['', '十', '百'])  // 不读两\两十\两百
+                    && $descMark !== '十';                   // 不读十两
+                if ($isChangeEr ) $cnNum = '两';
+                $integerRes .=  $cnZero . $cnNum . $cnDesc;
+            }
+        }
+
+        // 小数部分拼接
+        $decimalRes = '';
+        $count = strlen($decimal);
+        if ($decimal === null) {
+            $decimalRes = $isRmb ? '整' : '';
+        } else if ($decimal === '0') {
+            $decimalRes = $isRmb ? '' : '零';
+        } else if ($count > max(array_keys($descArr))) {
+            throw new Exception('number2chinese() number too large.', 1);
+        } else {
+            for ($i = 0; $i < $count; $i++) {
+                if ($isRmb && $i > count($rmbDescArr) - 1) break;
+                $n = $decimal[$i];
+                if (!$isRmb) {
+                    $cnZero = $n === '0' ? '零' : '';
+                    $cnNum  = $numArr[$n];
+                    $cnDesc = '';
+                    $decimalRes .=  $cnZero . $cnNum . $cnDesc;
+                } else {
+                    // 零零的读法
+                    $isLing = $i > 0                        // 去除首位
+                        && $n !== '0'                       // 本位数字不是零
+                        && $decimal[$i - 1] === '0';        // 上一位是零
+                    $cnZero = $isLing ? '零' : '';
+                    $cnNum  = $numArr[$n];
+                    $cnDesc = $cnNum ? $rmbDescArr[$i] : '';
+                    $decimalRes .=  $cnZero . $cnNum . $cnDesc;
+                }
+            }
+        }
+        // 拼接结果
+        $res = $symbol . (
+            $isRmb
+                ? $integerRes . ($decimalRes === '' ? '元整' : "元$decimalRes")
+                : $integerRes . ($decimalRes ==='' ? '' : "点$decimalRes")
+            );
+        return $res;
     }
 }
